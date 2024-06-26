@@ -8,12 +8,26 @@ const { splitText, retrieve, queryFromText } = require('./llm2');
 const app = express();
 
 const port = 3000;
+
+const allowedOrigins = ['http://localhost:3000', 'http://localhost:46897', 'null'];
 // Define CORS options
-const corsOptions = {
-  origin: 'http://localhost:46897',
-  credentials: true // Allow credentials (cookies) to be sent
-};
-app.use(cors(corsOptions));
+// const corsOptions = {
+//   origin: 'http://localhost:46897',
+//   credentials: true // Allow credentials (cookies) to be sent
+// };
+//app.use(cors(corsOptions));
+app.use(cors({
+  origin: function(origin, callback) {
+      // Allow requests with no origin (like mobile apps, curl, etc.)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) === -1) {
+          const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+          return callback(new Error(msg), false);
+      }
+      return callback(null, true);
+  },
+  credentials: true // Enable credentials (cookies, authorization headers) across domains
+}));
 app.use(cookieParser());
 app.use(session({
   secret: 'conv_history',  // Replace with a strong secret key
