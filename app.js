@@ -5,6 +5,7 @@ const bodyParser = require('body-parser');
 const generateResponse = require('./llm');
 const cors = require('cors');
 const { splitText, retrieve, queryFromText } = require('./llm2');
+const load = require('./document_loader');
 const app = express();
 
 const port = 3000;
@@ -40,12 +41,17 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 app.get('/', async (req, res) => { 
   //const result = await splitText()
-  res.send("Hello!");
+  res.send("Hello welcome to AI chatbot application!");
 })
 
 app.get('/split', async (req, res) => {
   const result = await splitText()
   res.send(result)
+})
+
+app.get('/load',async(req,res) => {
+  const result = await load()
+  res.send(result);
 })
 
 app.get('/response',async (req,res) => {
