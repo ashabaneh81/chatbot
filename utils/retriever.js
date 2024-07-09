@@ -1,8 +1,7 @@
 const { SupabaseVectorStore } = require('@langchain/community/vectorstores/supabase')
 const { OpenAIEmbeddings } = require('@langchain/openai')
 const { createClient } = require('@supabase/supabase-js')
-//const OpenAIEmbeddings = require('@langchain/openai')
-//const createClient =  require('@supabase/supabase-js')
+
 
 const embeddings = new OpenAIEmbeddings()
 

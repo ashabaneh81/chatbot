@@ -5,30 +5,10 @@ const {
 } = require("@langchain/community/vectorstores/pgvector");
 const pg = require('pg');
 const { PoolConfig } = require('pg');
-
-const config = {
-    postgresConnectionOptions: {
-      type: "postgres",
-      host: "localhost",
-      port: 5432,
-      user: "postgres",
-      password: "123456",
-      database: "postgres",
-    },
-    tableName: "ramallah_docs",
-    queryName: "match_ram_documents",
-    columns: {
-      idColumnName: "id",
-      vectorColumnName: "embedding",
-      contentColumnName: "content",
-      metadataColumnName: "metadata",
-    },
-    // supported distance strategies: cosine (default), innerProduct, or euclidean
-    distanceStrategy: "cosine",
-  };
-  const { postgresConnectionOptions, tableName, columns, distanceStrategy } = config;
-  const pool = new pg.Pool(postgresConnectionOptions);
-  const pgVectorConfig = {
+const config = require("../db/db_config");
+const { postgresConnectionOptions, tableName, columns, distanceStrategy } = config;
+const pool = new pg.Pool(postgresConnectionOptions);
+const pgVectorConfig = {
     pool: pool,
     tableName,
     columns,
