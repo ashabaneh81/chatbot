@@ -6,26 +6,8 @@ const {
 const { PoolConfig } = require("pg");
 const { DocxLoader } = require("@langchain/community/document_loaders/fs/docx");
 const { RecursiveCharacterTextSplitter } = require("langchain/text_splitter");
+const config = require("./db/db_config");
 
-const config = {
-  postgresConnectionOptions: {
-    type: "postgres",
-    host: "localhost",
-    port: 5432,
-    user: "postgres",
-    password: "123456",
-    database: "postgres",
-  },
-  tableName: "ramallah_docs",
-  columns: {
-    idColumnName: "id",
-    vectorColumnName: "embedding",
-    contentColumnName: "content",
-    metadataColumnName: "metadata",
-  },
-  // supported distance strategies: cosine (default), innerProduct, or euclidean
-  distanceStrategy: "cosine",
-};
 async function load()
 {
     const pgvectorStore = await PGVectorStore.initialize(
