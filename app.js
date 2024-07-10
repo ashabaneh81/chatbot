@@ -7,20 +7,39 @@ const cors = require('cors');
 const { splitText, retrieve, queryFromText } = require('./llm2');
 const load = require('./document_loader');
 const app = express();
-
 const port = 3000;
-
-const allowedOrigins = ['http://localhost:3000', 'http://localhost:46897', 'null'];
+const redis = require('redis');
+const client = redis.createClient();
+const allowedOrigins = [
+  'http://localhost:3000', 
+  'http://localhost:46897',
+  'http://192.168.99.101:46897', 
+  'http://10.1.1.20:80', 
+  'http://10.1.1.20', // Without port
+  '',
+  'null'
+];
 // Define CORS options
 // const corsOptions = {
 //   origin: 'http://localhost:46897',
 //   credentials: true // Allow credentials (cookies) to be sent
 // };
 //app.use(cors(corsOptions));
+client.on('error', (err) => {
+  console.error('Redis error:', err);
+});
+
+client.on('connect', () => {
+  console.log('Connected to Redis');
+});
+
 app.use(cors({
   origin: function(origin, callback) {
-      // Allow requests with no origin (like mobile apps, curl, etc.)
-      if (!origin) return callback(null, true);
+      console.log(`Origin is: ${origin}`); // Log the origin
+      if (!origin) {
+          console.log('No origin, allowing request'); // Log no origin case
+          return callback(null, true);
+      }
       if (allowedOrigins.indexOf(origin) === -1) {
           const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
           return callback(new Error(msg), false);
@@ -29,6 +48,7 @@ app.use(cors({
   },
   credentials: true // Enable credentials (cookies, authorization headers) across domains
 }));
+
 app.use(cookieParser());
 app.use(session({
   secret: 'conv_history',  // Replace with a strong secret key
@@ -41,7 +61,9 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 app.get('/', async (req, res) => { 
   //const result = await splitText()
-  res.send("Hello welcome to AI chatbot application!");
+  const sessionId = req.sessionID
+  console.log(sessionId)
+  res.send(`Hello welcome to AI chatbot application! ${sessionId}`);
 })
 
 app.get('/split', async (req, res) => {
@@ -60,7 +82,34 @@ app.get('/response',async (req,res) => {
   res.send(result)
 })
 
-app.get('/retreive', async (req,res) => {
+app.post('/retreive', async (req,res) => {
+  const sessionId = req.sessionID
+  console.log(sessionId)
+  const params = req.body;
+  var question = params.question
+  //var human = {Human: question};
+  // Initialize the array in the session if it doesn't exist
+  if (!req.session.myArray) {
+    req.session.myArray = [];
+    console.log('Session array initialized.');
+  }
+  req.session.myArray.push(question);
+  const result = await retrieve(params.question, req.session.myArray)
+//var ai = {AI: result}
+  req.session.myArray.push(result)
+ console.log(`Session retrieved: ${req.session.myArray}`);
+
+// Save the session
+req.session.save((err) => {
+  if (err) {
+    return res.status(500).send('Error saving session');
+  }
+  // Respond to the client
+  res.send(result);
+});
+})
+
+app.get('/chat', async (req,res) => {
   const params = req.query;
   var question = params.question
   //var human = {Human: question};
@@ -136,3 +185,25 @@ app.get('/get-session', (req, res) => {
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
 })
+
+function storeMessage(userId, message) {
+  client.rPush(userId, JSON.stringify(message), (err) => {
+    if (err) {
+      console.error('Error storing message:', err);
+    }
+  });
+}
+
+function getConversationHistory(userId, callback) {
+  client.lRange(userId, 0, -1, (err, messages) => {
+    if (err) {
+      console.error('Error retrieving conversation history:', err);
+      callback(err);
+      return;
+    }
+
+    const history = messages.map((msg) => JSON.parse(msg));
+    callback(null, history);
+  });
+}
+
