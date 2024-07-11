@@ -8,49 +8,35 @@ const { splitText, retrieve, queryFromText } = require('./llm2');
 const load = require('./document_loader');
 const app = express();
 const port = 3000;
+const RedisStore = require('connect-redis')(session);
 const redis = require('redis');
-const client = redis.createClient();
-const allowedOrigins = [
-  'http://localhost:3000', 
-  'http://localhost:46897',
-  'http://192.168.99.101:46897', 
-  'http://10.1.1.20:80', 
-  'http://10.1.1.20', // Without port
-  '',
-  'null'
-];
-// Define CORS options
-// const corsOptions = {
-//   origin: 'http://localhost:46897',
-//   credentials: true // Allow credentials (cookies) to be sent
-// };
-//app.use(cors(corsOptions));
+
+const client = redis.createClient({
+  host: 'localhost', // Change to your Redis server host
+  port: 6379        // Change to your Redis server port
+});
 client.on('error', (err) => {
   console.error('Redis error:', err);
 });
-
 client.on('connect', () => {
   console.log('Connected to Redis');
 });
 
 app.use(cors({
   origin: function(origin, callback) {
-      console.log(`Origin is: ${origin}`); // Log the origin
-      if (!origin) {
-          console.log('No origin, allowing request'); // Log no origin case
-          return callback(null, true);
-      }
-      if (allowedOrigins.indexOf(origin) === -1) {
-          const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-          return callback(new Error(msg), false);
-      }
+    console.log(`Origin is: ${origin}`); // Log the origin
+    if (!origin) {
+      console.log('No origin, allowing request'); // Log no origin case
       return callback(null, true);
+    }
+    return callback(null, true);
   },
   credentials: true // Enable credentials (cookies, authorization headers) across domains
 }));
 
 app.use(cookieParser());
 app.use(session({
+  store: new RedisStore({ client: client }),
   secret: 'conv_history',  // Replace with a strong secret key
   resave: false,              // Forces the session to be saved back to the session store
   saveUninitialized: true,    // Forces a session that is "uninitialized" to be saved to the store
