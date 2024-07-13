@@ -1,5 +1,7 @@
 const express = require('express');
 const session = require('express-session');
+const RedisStore = require("connect-redis").default
+const { createClient } = require("redis");
 const cookieParser = require('cookie-parser');
 const bodyParser = require('body-parser');
 const generateResponse = require('./llm');
@@ -8,54 +10,52 @@ const { splitText, retrieve, queryFromText } = require('./llm2');
 const load = require('./document_loader');
 const app = express();
 const port = 3000;
-const redis = require('redis');
-const client = redis.createClient();
-const allowedOrigins = [
-  'http://localhost:3000', 
-  'http://localhost:46897',
-  'http://192.168.99.101:46897', 
-  'http://10.1.1.20:80', 
-  'http://10.1.1.20', // Without port
-  '',
-  'null'
-];
-// Define CORS options
-// const corsOptions = {
-//   origin: 'http://localhost:46897',
-//   credentials: true // Allow credentials (cookies) to be sent
-// };
-//app.use(cors(corsOptions));
-client.on('error', (err) => {
-  console.error('Redis error:', err);
+
+// Initialize client.
+let redisClient = createClient()
+
+redisClient.on('error', (err) => {
+  console.error('Redis Client Error', err);
 });
 
-client.on('connect', () => {
-  console.log('Connected to Redis');
-});
+redisClient.connect().catch(console.error);
+
+// Initialize store.
+let redisStore = new RedisStore({
+  client: redisClient,
+  prefix: "myapp:",
+})
 
 app.use(cors({
-  origin: function(origin, callback) {
-      console.log(`Origin is: ${origin}`); // Log the origin
-      if (!origin) {
-          console.log('No origin, allowing request'); // Log no origin case
-          return callback(null, true);
-      }
-      if (allowedOrigins.indexOf(origin) === -1) {
-          const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-          return callback(new Error(msg), false);
-      }
-      return callback(null, true);
+origin: function(origin, callback) {
+  const allowedOrigins = ['http://10.1.1.20']; // Specify allowed origins
+  console.log(`Origin is: ${origin}`); // Log the origin
+  if (!origin || allowedOrigins.includes(origin)) {
+    console.log('Origin is allowed, allowing request'); // Log allowed case
+    return callback(null, true);
+  }
+  console.log('Origin not allowed, rejecting request'); // Log disallowed case
+  return callback(new Error('Not allowed by CORS'));
   },
   credentials: true // Enable credentials (cookies, authorization headers) across domains
 }));
 
+
 app.use(cookieParser());
+
 app.use(session({
-  secret: 'conv_history',  // Replace with a strong secret key
-  resave: false,              // Forces the session to be saved back to the session store
-  saveUninitialized: true,    // Forces a session that is "uninitialized" to be saved to the store
-  cookie: { secure: false }
-}))
+  store: redisStore,
+  secret: 'con_history',
+  resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: false, // Set to true if using HTTPS
+      httpOnly: true,
+      maxAge: 1000 * 60 * 60 * 24, // 1 day
+            },
+          })
+         );
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -102,6 +102,7 @@ app.post('/retreive', async (req,res) => {
 // Save the session
 req.session.save((err) => {
   if (err) {
+   console.log(err);
     return res.status(500).send('Error saving session');
   }
   // Respond to the client
@@ -206,4 +207,3 @@ function getConversationHistory(userId, callback) {
     callback(null, history);
   });
 }
-
