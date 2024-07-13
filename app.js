@@ -10,12 +10,27 @@ const { splitText, retrieve, queryFromText } = require('./llm2');
 const load = require('./document_loader');
 const app = express();
 const port = 3000;
+<<<<<<< HEAD
 
 // Initialize client.
 let redisClient = createClient()
 
 redisClient.on('error', (err) => {
   console.error('Redis Client Error', err);
+=======
+const RedisStore = require('connect-redis')(session);
+const redis = require('redis');
+
+const client = redis.createClient({
+  host: 'localhost', // Change to your Redis server host
+  port: 6379        // Change to your Redis server port
+});
+client.on('error', (err) => {
+  console.error('Redis error:', err);
+});
+client.on('connect', () => {
+  console.log('Connected to Redis');
+>>>>>>> 5ec29dca514ffb39b169049dd4a565bfb2e9988c
 });
 
 redisClient.connect().catch(console.error);
@@ -27,6 +42,7 @@ let redisStore = new RedisStore({
 })
 
 app.use(cors({
+<<<<<<< HEAD
 origin: function(origin, callback) {
   const allowedOrigins = ['http://10.1.1.20']; // Specify allowed origins
   console.log(`Origin is: ${origin}`); // Log the origin
@@ -36,6 +52,15 @@ origin: function(origin, callback) {
   }
   console.log('Origin not allowed, rejecting request'); // Log disallowed case
   return callback(new Error('Not allowed by CORS'));
+=======
+  origin: function(origin, callback) {
+    console.log(`Origin is: ${origin}`); // Log the origin
+    if (!origin) {
+      console.log('No origin, allowing request'); // Log no origin case
+      return callback(null, true);
+    }
+    return callback(null, true);
+>>>>>>> 5ec29dca514ffb39b169049dd4a565bfb2e9988c
   },
   credentials: true // Enable credentials (cookies, authorization headers) across domains
 }));
@@ -44,6 +69,7 @@ origin: function(origin, callback) {
 app.use(cookieParser());
 
 app.use(session({
+<<<<<<< HEAD
   store: redisStore,
   secret: 'con_history',
   resave: false,
@@ -56,6 +82,14 @@ app.use(session({
           })
          );
 
+=======
+  store: new RedisStore({ client: client }),
+  secret: 'conv_history',  // Replace with a strong secret key
+  resave: false,              // Forces the session to be saved back to the session store
+  saveUninitialized: true,    // Forces a session that is "uninitialized" to be saved to the store
+  cookie: { secure: false }
+}))
+>>>>>>> 5ec29dca514ffb39b169049dd4a565bfb2e9988c
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
