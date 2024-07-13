@@ -18,20 +18,6 @@ redisClient.on('error', (err) => {
   console.error('Redis Client Error', err);
 })
 
-const RedisStore = require('connect-redis')(session);
-const redis = require('redis');
-
-const client = redis.createClient({
-  host: 'localhost', // Change to your Redis server host
-  port: 6379        // Change to your Redis server port
-});
-client.on('error', (err) => {
-  console.error('Redis error:', err);
-});
-client.on('connect', () => {
-  console.log('Connected to Redis');
-});
-
 redisClient.connect().catch(console.error);
 
 // Initialize store.
@@ -49,11 +35,11 @@ origin: function(origin, callback) {
     return callback(null, true);
   }
   console.log('Origin not allowed, rejecting request'); // Log disallowed case
-  return callback(new Error('Not allowed by CORS'));
+  return callback(null, true);
   },
   credentials: true // Enable credentials (cookies, authorization headers) across domains
 }));
-
+  
 
 app.use(cookieParser());
 
@@ -97,21 +83,23 @@ app.get('/response',async (req,res) => {
 })
 
 app.post('/retreive', async (req,res) => {
-  const sessionId = req.sessionID
+  const ipAddress = req.ip; // Get the IP address from req.ip
+  const forwardedIp = req.headers['x-forwarded-for']; // Check for the X-Forwarded-For header
+  const sessionId = forwardedIp ? forwardedIp.split(',')[0] : ipAddress;
   console.log(sessionId)
   const params = req.body;
   var question = params.question
-  //var human = {Human: question};
-  // Initialize the array in the session if it doesn't exist
-  if (!req.session.myArray) {
-    req.session.myArray = [];
+  var history = await getConversationHistory(sessionId);
+  if (!history) {
+    history = [];
     console.log('Session array initialized.');
   }
-  req.session.myArray.push(question);
-  const result = await retrieve(params.question, req.session.myArray)
+  storeMessage(sessionId,question)//req.session.myArray.push(question);
+  history = await getConversationHistory(sessionId);
+  const result = await retrieve(params.question, history)
 //var ai = {AI: result}
-  req.session.myArray.push(result)
- console.log(`Session retrieved: ${req.session.myArray}`);
+  storeMessage(sessionId,result);//req.session.myArray.push(result)
+ //console.log(`Session retrieved: ${getConversationHistory(sessionId)}`);
 
 // Save the session
 req.session.save((err) => {
@@ -202,7 +190,7 @@ app.listen(port, () => {
 })
 
 function storeMessage(userId, message) {
-  client.rPush(userId, JSON.stringify(message), (err) => {
+  redisClient.rPush(userId, message, (err) => {
     if (err) {
       console.error('Error storing message:', err);
     }
@@ -210,16 +198,8 @@ function storeMessage(userId, message) {
 }
 
 
-function getConversationHistory(userId, callback) {
-  client.lRange(userId, 0, -1, (err, messages) => {
-    if (err) {
-      console.error('Error retrieving conversation history:', err);
-      callback(err);
-      return;
-    }
-
-    const history = messages.map((msg) => JSON.parse(msg));
-    callback(null, history);
-  });
+async function getConversationHistory(userId) {
+  const listItems = await redisClient.lRange(userId, 0, -1);
+  return listItems;
 }
 
