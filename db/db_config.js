@@ -4,8 +4,8 @@ const config = {
       host: "localhost",
       port: 5432,
       user: "postgres",
-      password: "123456",
-      database: "postgres",
+      password: "postgres",
+      database: "chatbot_db",
     },
     tableName: "ramallah_docs",
     columns: {
